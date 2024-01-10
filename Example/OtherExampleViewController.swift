@@ -8,6 +8,7 @@
 
 import UIKit
 import SideMenu
+import SwiftUI
 
 class OtherExampleViewController: UIViewController {
 
@@ -47,5 +48,12 @@ class OtherExampleViewController: UIViewController {
         sideMenuController.contentViewController = contentViewController
         sideMenuController.menuViewController = menuViewController
         UIApplication.shared.keyWindow?.rootViewController = sideMenuController
+    }
+    
+    
+    @IBAction func switchToSwiftUIExample(_ sender: Any) {
+        let swiftUIView = SideMenuTester_SUIContainer()
+        let hostingController = UIHostingController(rootView: swiftUIView)
+        UIApplication.shared.keyWindow?.rootViewController = hostingController
     }
 }

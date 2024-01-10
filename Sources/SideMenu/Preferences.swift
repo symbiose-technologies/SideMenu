@@ -103,6 +103,10 @@ extension SideMenuController {
             /// Whether the pan gesture should be enabled. The default is true.
             public var enablePanGesture = true
 
+            /// Whether the edge gesture should be enabled. The  default is false
+            public var enableEdgeGesture = false
+            
+            
             /// If enabled, the menu view will act like a rubber band when reaching the border. The default is true.
             public var enableRubberEffectWhenPanning = true
 

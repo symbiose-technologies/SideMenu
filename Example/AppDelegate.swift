@@ -30,6 +30,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private func configureSideMenu() {
         SideMenuController.preferences.basic.menuWidth = 240
         SideMenuController.preferences.basic.defaultCacheKey = "0"
+        
+        SideMenuController.preferences.basic.enablePanGesture = true
+        SideMenuController.preferences.basic.enableEdgeGesture = false
     }
 
 }

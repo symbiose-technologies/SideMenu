@@ -121,6 +121,11 @@ open class SideMenuController: UIViewController {
     // The pan gesture recognizer responsible for revealing and hiding side menu
     private weak var panGestureRecognizer: UIPanGestureRecognizer?
 
+    
+    // The screen edge gesture recognizer responsible for revealing and hiding side menu
+    private weak var edgeGestureRecognizer: UIScreenEdgePanGestureRecognizer?
+
+    
     var shouldReverseDirection: Bool {
         if preferences.basic.forceRightToLeft { return true }
         guard preferences.basic.shouldRespectLanguageDirection else {
@@ -341,6 +346,15 @@ open class SideMenuController: UIViewController {
         panGesture.delegate = self
         panGestureRecognizer = panGesture
         view.addGestureRecognizer(panGesture)
+        
+        if preferences.basic.enableEdgeGesture {
+            let edgeGesture = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(SideMenuController.handlePanGesture(_:)))
+            edgeGesture.edges = preferences.basic.direction == .left ? .left : .right
+            edgeGesture.delegate = self
+            edgeGestureRecognizer = edgeGesture
+            view.addGestureRecognizer(edgeGesture)
+        }
+        
     }
 
     private func addContentOverlayViewIfNeeded() {
@@ -747,10 +761,14 @@ open class SideMenuController: UIViewController {
 
 extension SideMenuController: UIGestureRecognizerDelegate {
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard preferences.basic.enablePanGesture else {
+
+//        print("GestureRecognizer shouldReceiveTouch: at: \(touch.location(in: view)) with touch attached recognizers count: \(touch.gestureRecognizers?.count ?? -1) \nof: \(String(describing: touch.gestureRecognizers))")
+        
+        guard preferences.basic.enablePanGesture || preferences.basic.enableEdgeGesture else {
             return false
         }
 
+        
         if let shouldReveal = self.delegate?.sideMenuControllerShouldRevealMenu(self) {
             guard shouldReveal else {
                 return false
@@ -758,12 +776,47 @@ extension SideMenuController: UIGestureRecognizerDelegate {
         }
 
         if isViewControllerInsideNavigationStack(for: touch.view) {
-            return false
+            
+//            print("isViewControllerInsideNavigationStack")
+            
+            
+            //If menu is on left, will conflict so ignore
+            if self.preferences.basic.direction == .left {
+//                print("If menu is on left, will conflict so ignore")
+                return false
+            }
+            
+            if self.preferences.basic.direction == .right {
+                //check if the gesture goes right-to-left
+//                print("self.preferences.basic.direction == .right")
+
+                //if menu is closed
+                
+                
+                
+                if preferences.basic.enablePanGesture,
+                let panRecognizer = gestureRecognizer as? UIPanGestureRecognizer {
+                    let velocity = panRecognizer.velocity(in: view)
+                    print("[PanGestureRecognizer] velocity: \(velocity)")
+                    if velocity.x > 0 {
+                        print("Menu on Right -> ignore if gesture is left-to-right")
+                        return false
+                    }
+                }
+                
+                
+                
+            }
+            
+//            return false
         }
 
         if touch.view is UISlider {
             return false
         }
+        
+        //if
+        
 
         // If the view is scrollable in horizon direction, don't receive the touch
         if let scrollView = touch.view as? UIScrollView, scrollView.frame.width > scrollView.contentSize.width {
@@ -771,6 +824,13 @@ extension SideMenuController: UIGestureRecognizerDelegate {
         }
 
         return true
+    }
+    
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer == self.panGestureRecognizer && otherGestureRecognizer == self.edgeGestureRecognizer {
+            return true
+        }
+        return false
     }
 
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
