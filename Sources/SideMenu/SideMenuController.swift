@@ -779,7 +779,6 @@ extension SideMenuController: UIGestureRecognizerDelegate {
             
 //            print("isViewControllerInsideNavigationStack")
             
-            
             //If menu is on left, will conflict so ignore
             if self.preferences.basic.direction == .left {
 //                print("If menu is on left, will conflict so ignore")
@@ -792,12 +791,10 @@ extension SideMenuController: UIGestureRecognizerDelegate {
 
                 //if menu is closed
                 
-                
-                
                 if preferences.basic.enablePanGesture,
                 let panRecognizer = gestureRecognizer as? UIPanGestureRecognizer {
                     let velocity = panRecognizer.velocity(in: view)
-                    print("[PanGestureRecognizer] velocity: \(velocity)")
+//                    print("[PanGestureRecognizer] velocity: \(velocity)")
                     if velocity.x > 0 {
                         print("Menu on Right -> ignore if gesture is left-to-right")
                         return false

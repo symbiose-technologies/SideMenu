@@ -12,6 +12,7 @@ extension SideMenuController {
     /// The preferences of side menu controller.
     public struct Preferences {
 
+        public init() { }
         /// The animation that will apply to the status bar when the menu is revealed/hidden.
         @available(iOS, deprecated: 13.0, message: "Status bar animation no longer work after iOS 13")
         public enum StatusBarBehavior {

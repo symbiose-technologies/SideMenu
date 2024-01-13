@@ -14,6 +14,75 @@
 
 import Foundation
 import SwiftUI
+import Combine
+
+
+
+
+public class SideMenuViewModel: ObservableObject {
+
+    public var preferences: SideMenuController.Preferences
+    
+    public var delegate: SideMenuControllerDelegate?
+    var emitsHaptics: Bool = true
+    
+    
+    public init(prefs: SideMenuController.Preferences,
+                delegate: SideMenuControllerDelegate? = nil) {
+        self.preferences = prefs
+        self.delegate = delegate
+    }
+}
+extension SideMenuViewModel: SideMenuControllerDelegate {
+    public func sideMenuController(_ sideMenuController: SideMenuController,
+                            animationControllerFrom fromVC: UIViewController,
+                            to toVC: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        if let delegate {
+            return delegate.sideMenuController(sideMenuController, animationControllerFrom: fromVC, to: toVC)
+        }
+        return nil
+    }
+
+    public func sideMenuController(_ sideMenuController: SideMenuController,
+                            willShow viewController: UIViewController,
+                            animated: Bool) {
+        delegate?.sideMenuController(sideMenuController, willShow: viewController, animated: animated)
+    }
+    public func sideMenuController(_ sideMenuController: SideMenuController,
+                            didShow viewController: UIViewController,
+                            animated: Bool) {
+        delegate?.sideMenuController(sideMenuController, didShow: viewController, animated: animated)
+    }
+    public func sideMenuControllerShouldRevealMenu(_ sideMenuController: SideMenuController) -> Bool {
+        if let delegate {
+            return delegate.sideMenuControllerShouldRevealMenu(sideMenuController)
+        }
+        return true
+    }
+    public func sideMenuControllerWillRevealMenu(_ sideMenuController: SideMenuController) {
+        delegate?.sideMenuControllerWillRevealMenu(sideMenuController)
+    }
+    public func sideMenuControllerDidRevealMenu(_ sideMenuController: SideMenuController) {
+        delegate?.sideMenuControllerDidRevealMenu(sideMenuController)
+    }
+    public func sideMenuControllerWillHideMenu(_ sideMenuController: SideMenuController) {
+        delegate?.sideMenuControllerWillHideMenu(sideMenuController)
+    }
+    public func sideMenuControllerDidHideMenu(_ sideMenuController: SideMenuController) {
+        delegate?.sideMenuControllerDidHideMenu(sideMenuController)
+    }
+}
+
+/*
+ 
+ #if os(iOS)
+ @MainActor
+ func hideKeyboard()
+ {
+     let resign = #selector(UIResponder.resignFirstResponder)
+     UIApplication.shared.sendAction(resign, to: nil, from: nil, for: nil)
+ }
+ */
 
 
 public struct SideMenuView<R: View, M: View>: View {
@@ -22,22 +91,26 @@ public struct SideMenuView<R: View, M: View>: View {
     let root: () -> R
     let menu: () -> M
     
-    let menuPrefs: SideMenuController.Preferences
+    let model: SideMenuViewModel
+    
+    let isOpen: Binding<Bool>?
     
     public init(
-        _ preferences: SideMenuController.Preferences,
+        _ model: SideMenuViewModel,
         updateToggle: Binding<Bool>,
+        isOpen: Binding<Bool>? = nil,
         @ViewBuilder root: @escaping () -> R,
         @ViewBuilder menu:  @escaping () -> M) {
-            self.menuPrefs = preferences
+            self.model = model
             self.root = root
             self.menu = menu
+            self.isOpen = isOpen
             self.updateToggle = updateToggle
     }
     
     
     public var body: some View {
-        SideMenuRepresentable(preferences: menuPrefs, updateToggle: updateToggle, root: root, menu: menu)
+        SideMenuRepresentable(model: model, updateToggle: updateToggle, root: root, menu: menu)
     }
     
     struct EmbedSwiftUIView<Content: View> : UIViewControllerRepresentable {
@@ -61,23 +134,42 @@ public struct SideMenuView<R: View, M: View>: View {
         
         var rootView: () -> R
         var menuView: () -> M
-        var sideMenuPreferences: SideMenuController.Preferences
+        var sideMenuPreferences: SideMenuController.Preferences {
+            model.preferences
+        }
+        
+        @ObservedObject var model: SideMenuViewModel
         
         //updatetoggle
         @Binding var updateToggle: Bool
         
-        init(preferences: SideMenuController.Preferences,
+        @Binding var isOpen: Bool
+        var shouldRespectIsOpenBinding: Bool
+        
+        init(model: SideMenuViewModel,
              updateToggle: Binding<Bool> = .constant(false),
+             isOpen: Binding<Bool>? = nil,
              @ViewBuilder root: @escaping () -> R,
              @ViewBuilder menu:  @escaping () -> M) {
             self.rootView = root
             self.menuView = menu
-            self.sideMenuPreferences = preferences
+            self.model = model
+            
+            if let isOpen {
+                self._isOpen = isOpen
+                self.shouldRespectIsOpenBinding = true
+                
+            } else {
+                self._isOpen = .constant(false)
+                
+                self.shouldRespectIsOpenBinding = false
+            }
+            
             self._updateToggle = updateToggle
         }
         
         func makeCoordinator() -> Coordinator {
-            return Coordinator(self)
+            return Coordinator(self, model: model)
         }
         
         func makeUIViewController(context: Context) -> SideMenuController {
@@ -90,15 +182,23 @@ public struct SideMenuView<R: View, M: View>: View {
             
             let contentViewController = UIHostingController(rootView: rootView())
             contentViewController.view.backgroundColor = .clear
-            
+
             context.coordinator.rootViewHost = contentViewController
             
             let menuViewController = UIHostingController(rootView: menuView())
+
+            
+            if #available(iOS 16.4, *) {
+                contentViewController.safeAreaRegions = SafeAreaRegions()
+                menuViewController.safeAreaRegions = SafeAreaRegions()
+            }
+            
             menuViewController.view.backgroundColor = .clear
             context.coordinator.menuViewHost = menuViewController
             
             let sideMenu = SideMenuController(contentViewController: contentViewController,
                                               menuViewController: menuViewController)
+//            sideMenu.delegate = context.coordinator.model
             sideMenu.delegate = context.coordinator
             
             return sideMenu
@@ -106,14 +206,22 @@ public struct SideMenuView<R: View, M: View>: View {
         
         func updateUIViewController(_ uiViewController: SideMenuController, context: Context) {
             // Update the controller as needed
-            print("updateUIViewController sidemenurepresentable")
+            print("updateUIViewController sidemenurepresentable: shouldRespectIsOpenBinding: \(shouldRespectIsOpenBinding) isOpen: \(isOpen)")
             
+            if shouldRespectIsOpenBinding {
+                if isOpen != uiViewController.isMenuRevealed {
+                    if isOpen {
+                        uiViewController.revealMenu(animated: true)
+                    } else {
+                        uiViewController.hideMenu(animated: true)
+                    }
+                }
+            }
 //            uiViewController.contentViewController.view.setNeedsLayout()
 //            uiViewController.menuViewController.view.setNeedsLayout()
-
             
-            context.coordinator.rootViewHost?.rootView = rootView()
-            context.coordinator.menuViewHost?.rootView = menuView()
+//            context.coordinator.rootViewHost?.rootView = rootView()
+//            context.coordinator.menuViewHost?.rootView = menuView()
         }
     }
     
@@ -125,23 +233,25 @@ public struct SideMenuView<R: View, M: View>: View {
         var rootViewHost: UIHostingController<R>? = nil
         var menuViewHost: UIHostingController<M>? = nil
         
+        var model: SideMenuViewModel
         
-        init(_ sideMenuRep: SideMenuRepresentable) {
+        init(_ sideMenuRep: SideMenuRepresentable, 
+             model: SideMenuViewModel
+        ) {
             self.sideMenuRep = sideMenuRep
+            self.model = model
         }
         
-//        func sideMenuController(_ sideMenuController: SideMenuController,
-//                                animationControllerFrom fromVC: UIViewController,
-//                                to toVC: UIViewController) -> UIViewControllerAnimatedTransitioning? {
-//            return BasicTransitionAnimator(options: .transitionFlipFromLeft, duration: 0.6)
-//        }
 
         func sideMenuController(_ sideMenuController: SideMenuController, willShow viewController: UIViewController, animated: Bool) {
             print("[Example] View controller will show [\(viewController)]")
+            model.sideMenuController(sideMenuController, willShow: viewController, animated: animated)
         }
 
         func sideMenuController(_ sideMenuController: SideMenuController, didShow viewController: UIViewController, animated: Bool) {
             print("[Example] View controller did show [\(viewController)]")
+            model.sideMenuController(sideMenuController, didShow: viewController, animated: animated)
+
         }
 
         func sideMenuControllerShouldRevealMenu(_ sideMenuController: SideMenuController) -> Bool {
@@ -151,18 +261,45 @@ public struct SideMenuView<R: View, M: View>: View {
 
         func sideMenuControllerWillHideMenu(_ sideMenuController: SideMenuController) {
             print("[Example] Menu will hide")
+            self.emitHaptic(willOpen: false)
+            model.sideMenuControllerWillHideMenu(sideMenuController)
+
         }
 
         func sideMenuControllerDidHideMenu(_ sideMenuController: SideMenuController) {
             print("[Example] Menu did hide.")
+            if sideMenuRep.isOpen && sideMenuRep.shouldRespectIsOpenBinding,
+               sideMenuRep.isOpen != false {
+                sideMenuRep.isOpen = false
+            }
+            model.sideMenuControllerDidHideMenu(sideMenuController)
+
         }
 
         func sideMenuControllerWillRevealMenu(_ sideMenuController: SideMenuController) {
             print("[Example] Menu will reveal.")
+            self.emitHaptic(willOpen: true)
+            model.sideMenuControllerWillRevealMenu(sideMenuController)
+
         }
 
         func sideMenuControllerDidRevealMenu(_ sideMenuController: SideMenuController) {
             print("[Example] Menu did reveal.")
+            if sideMenuRep.isOpen && sideMenuRep.shouldRespectIsOpenBinding,
+               sideMenuRep.isOpen != true {
+                sideMenuRep.isOpen = true
+            }
+            model.sideMenuControllerDidRevealMenu(sideMenuController)
+
+        }
+     
+        
+        func emitHaptic(willOpen: Bool) {
+            if self.model.emitsHaptics {
+                let mediumGen = UIImpactFeedbackGenerator(style: .soft)
+                mediumGen.impactOccurred()
+                
+            }
         }
         
     }
@@ -197,7 +334,8 @@ public struct SideMenuTester_SUI: View {
     }
     
     public var body: some View {
-        SideMenuView(.init(), updateToggle: $updateToggle) {
+        SideMenuView(.init(prefs: .init()),
+                     updateToggle: $updateToggle) {
             TabView(selection: $selection) {
                 testTabContent(0)
                 testTabContent(1)
@@ -214,6 +352,8 @@ public struct SideMenuTester_SUI: View {
             print("OnChangeOfTab: \(value)")
             updateToggle.toggle()
         })
+        .ignoresSafeArea()
+        
     }
 
     @ViewBuilder
@@ -248,6 +388,7 @@ public struct SideMenuTester_SUI: View {
         .tabItem {
             Label("\(forIdx)", systemImage: "tray.and.arrow.up.fill")
         }
+        .tag(forIdx)
     }
     
     
