@@ -187,7 +187,9 @@ open class SideMenuController: UIViewController {
 
         load(contentViewController, on: contentContainerView)
         load(menuViewController, on: menuContainerView)
+//        load(menuViewController, on: menuContainerView, useConstraints: true)
 
+        
         if preferences.basic.position == .under {
             view.bringSubviewToFront(contentContainerView)
         }
@@ -262,6 +264,7 @@ open class SideMenuController: UIViewController {
             addContentOverlayViewIfNeeded()
         }
 
+        print("UIApplication.shared.beginIgnoringInteractionEvents() -- changeMenuVisibility")
         UIApplication.shared.beginIgnoringInteractionEvents()
 
         let animationClosure = {
@@ -291,6 +294,7 @@ open class SideMenuController: UIViewController {
             completion?(true)
 
             UIApplication.shared.endIgnoringInteractionEvents()
+            print("UIApplication.shared.endIgnoringInteractionEvents() -- changeMenuVisibility")
 
             self.isMenuRevealed = reveal
         }
@@ -476,6 +480,13 @@ open class SideMenuController: UIViewController {
                 contentContainerOverlay?.alpha = self.preferences.animation.shadowAlpha * shadowPercent
             }
         case .ended, .cancelled, .failed:
+            let velocityX = pan.velocity(in: pan.view).x
+            let panGestureVelocity = preferences.basic.panGestureVelocity
+
+            let direction = preferences.basic.direction
+            var factor: CGFloat = direction == .left ? 1 : -1
+            factor *= shouldReverseDirection ? -1 : 1
+
             let offset: CGFloat
             switch preferences.basic.position {
             case .above:
@@ -483,14 +494,44 @@ open class SideMenuController: UIViewController {
             case .under, .sideBySide:
                 offset = isLeft ? viewToAnimate.frame.minX : containerWidth - viewToAnimate.frame.maxX
             }
+
             let offsetPercent = offset / menuWidth
             let decisionPoint: CGFloat = isMenuRevealed ? 0.85 : 0.15
-            if offsetPercent > decisionPoint {
-                // We need to call the delegates, change the status bar only when the menu was previous hidden
+
+            let shouldReveal: Bool
+            if let velocityThreshold = panGestureVelocity {
+                if isLeft {
+                    // For left-side or custom direction menus, a positive velocity means a rightward swipe
+                    shouldReveal = (velocityX > velocityThreshold && !isMenuRevealed) || (offsetPercent > decisionPoint && velocityX >= 0)
+                } else {
+                    // For right-side or custom direction menus, a negative velocity means a leftward swipe
+                    shouldReveal = (velocityX < -velocityThreshold && !isMenuRevealed) || (offsetPercent > decisionPoint && velocityX <= 0)
+                }
+            } else {
+                // When panGestureVelocity is nil, rely only on offsetPercent
+                shouldReveal = offsetPercent > decisionPoint
+            }
+            print("SideMenuController shouldReveal: \(shouldReveal) offsetPercent: \(offsetPercent) decisionPoint: \(decisionPoint) velocityX: \(velocityX) panGestureVelocity: \(panGestureVelocity ?? -1)")
+            if shouldReveal {
                 changeMenuVisibility(reveal: true, shouldCallDelegate: !isMenuRevealed, shouldChangeStatusBar: !isMenuRevealed)
             } else {
                 changeMenuVisibility(reveal: false, shouldCallDelegate: isMenuRevealed, shouldChangeStatusBar: true)
             }
+//            let offset: CGFloat
+//            switch preferences.basic.position {
+//            case .above:
+//                offset = isLeft ? viewToAnimate.frame.maxX : containerWidth - viewToAnimate.frame.minX
+//            case .under, .sideBySide:
+//                offset = isLeft ? viewToAnimate.frame.minX : containerWidth - viewToAnimate.frame.maxX
+//            }
+//            let offsetPercent = offset / menuWidth
+//            let decisionPoint: CGFloat = isMenuRevealed ? 0.85 : 0.15
+//            if offsetPercent > decisionPoint {
+//                // We need to call the delegates, change the status bar only when the menu was previous hidden
+//                changeMenuVisibility(reveal: true, shouldCallDelegate: !isMenuRevealed, shouldChangeStatusBar: !isMenuRevealed)
+//            } else {
+//                changeMenuVisibility(reveal: false, shouldCallDelegate: isMenuRevealed, shouldChangeStatusBar: true)
+//            }
         default:
             break
         }
@@ -690,7 +731,7 @@ open class SideMenuController: UIViewController {
 
     // MARK: - Helper Methods
 
-    private func sideMenuFrame(visibility: Bool, targetSize: CGSize? = nil) -> CGRect {
+    private func sideMenuFrame(visibility: Bool, targetSize: CGSize? = nil, explicitWidthCap: Bool = true) -> CGRect {
         let position = preferences.basic.position
         switch position {
         case .above, .sideBySide:
@@ -702,9 +743,19 @@ open class SideMenuController: UIViewController {
             }
             let factor: CGFloat = adjustedDirection == .left ? 1 : -1
             baseFrame.origin.x *= factor
-            return CGRect(origin: baseFrame.origin, size: targetSize ?? baseFrame.size)
+            
+            var modSize = targetSize ?? baseFrame.size
+            if explicitWidthCap {
+                modSize.width = preferences.basic.menuWidth
+            }
+            return CGRect(origin: baseFrame.origin, size: modSize)
         case .under:
-            return CGRect(origin: view.frame.origin, size: targetSize ?? view.frame.size)
+            
+            var modSize = targetSize ?? view.frame.size
+            if explicitWidthCap {
+                modSize.width = preferences.basic.menuWidth
+            }
+            return CGRect(origin: view.frame.origin, size: modSize)
         }
     }
 

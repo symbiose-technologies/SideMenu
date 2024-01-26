@@ -10,7 +10,7 @@ import UIKit
 
 extension UIViewController {
 
-    func load(_ viewController: UIViewController?, on view: UIView) {
+    func load(_ viewController: UIViewController?, on view: UIView, useConstraints: Bool = false) {
         guard let viewController = viewController else {
             return
         }
@@ -19,13 +19,30 @@ extension UIViewController {
 
         addChild(viewController)
 
-        viewController.view.frame = view.bounds
-        viewController.view.translatesAutoresizingMaskIntoConstraints = true
-        viewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-
-        view.addSubview(viewController.view)
-
-        viewController.didMove(toParent: self)
+        if useConstraints {
+            viewController.view.translatesAutoresizingMaskIntoConstraints = false
+            
+            view.addSubview(viewController.view)
+            NSLayoutConstraint.activate([
+                viewController.view.topAnchor.constraint(equalTo: view.topAnchor),
+                viewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                viewController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                viewController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            ])
+            // `didMoveToParentViewController:` is called automatically when adding
+            viewController.didMove(toParent: self)
+            
+        } else {
+            viewController.view.frame = view.bounds
+            viewController.view.translatesAutoresizingMaskIntoConstraints = true
+            viewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            
+            view.addSubview(viewController.view)
+            
+            viewController.didMove(toParent: self)
+            
+        }
+        
     }
 
     func unload(_ viewController: UIViewController?) {

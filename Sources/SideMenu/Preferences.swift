@@ -128,6 +128,11 @@ extension SideMenuController {
             
             /// The sensitivity of the pan gesture recognizer revealing menu view controller.
             public var panGestureSensitivity: CGFloat = 0.25
+            
+            /// The velocity threshold for the pangesture
+            public var panGestureVelocity: CGFloat? = 500
+            
+            
         }
 
         /// The basic configuration of side menu.
