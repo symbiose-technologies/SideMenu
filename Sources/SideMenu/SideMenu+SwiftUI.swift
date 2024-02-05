@@ -106,9 +106,6 @@ extension GlobalSideMenuViewManager: SideMenuControllerDelegate {
     }
     
     public func sideMenuControllerShouldRevealMenu(_ sideMenuController: SideMenuController) -> Bool {
-//        if let delegate {
-//            return delegate.sideMenuControllerShouldRevealMenu(sideMenuController)
-//        }
         if self.menuIsBlocked {
             return false
         }
@@ -116,18 +113,15 @@ extension GlobalSideMenuViewManager: SideMenuControllerDelegate {
     }
     
     public func sideMenuControllerWillRevealMenu(_ sideMenuController: SideMenuController) {
-//        delegate?.sideMenuControllerWillRevealMenu(sideMenuController)
         self.emitHaptic(willOpen: true)
     }
     public func sideMenuControllerDidRevealMenu(_ sideMenuController: SideMenuController) {
-//        delegate?.sideMenuControllerDidRevealMenu(sideMenuController)
     }
     public func sideMenuControllerWillHideMenu(_ sideMenuController: SideMenuController) {
-//        delegate?.sideMenuControllerWillHideMenu(sideMenuController)
         self.emitHaptic(willOpen: false)
     }
     public func sideMenuControllerDidHideMenu(_ sideMenuController: SideMenuController) {
-//        delegate?.sideMenuControllerDidHideMenu(sideMenuController)
+
     }
     
     
@@ -196,6 +190,8 @@ public struct SideMenuView<R: View, M: View>: View {
     
     public var body: some View {
         SideMenuRepresentable(model: model, updateToggle: updateToggle, root: root, menu: menu)
+//            .ignoresSafeArea(.keyboard, edges: .all)
+            .ignoresSafeArea()
     }
     
 //    struct EmbedSwiftUIView<Content: View> : UIViewControllerRepresentable {
@@ -256,7 +252,8 @@ public struct SideMenuView<R: View, M: View>: View {
             
             if #available(iOS 16.4, *) {
                 contentViewController.safeAreaRegions = SafeAreaRegions()
-                menuViewController.safeAreaRegions = SafeAreaRegions()
+//                menuViewController.safeAreaRegions = SafeAreaRegions()
+                menuViewController.safeAreaRegions = .keyboard
             }
             if #available(iOS 16.0, *) {
                 menuViewController.sizingOptions = .intrinsicContentSize
@@ -269,6 +266,8 @@ public struct SideMenuView<R: View, M: View>: View {
             
             let sideMenu = SideMenuController(contentViewController: contentViewController,
                                               menuViewController: menuViewController)
+            
+            
             
             if model.useGlobalManager {
                 GlobalSideMenuViewManager.shared.setSideMenuController(sideMenu)
@@ -364,10 +363,6 @@ public struct SideMenuView<R: View, M: View>: View {
         }
         
     }
-    
-    
-    
-    
     
 }
 

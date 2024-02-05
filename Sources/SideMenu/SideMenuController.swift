@@ -155,6 +155,10 @@ open class SideMenuController: UIViewController {
         unregisterNotifications()
     }
 
+    //Not needed w/safearea adjustments
+    let shouldFixKeyboardHeight: Bool = false
+    
+    
     // MARK: Life Cycle
 
     /// ``SideMenuController`` may be initialized from Storyboard, thus we shouldn't load the view in `loadView()`.
@@ -177,6 +181,8 @@ open class SideMenuController: UIViewController {
             fatalError("[SideMenuSwift] `menuViewController` or `contentViewController` should not be nil.")
         }
 
+        
+        
         contentContainerView.frame = view.bounds
         view.addSubview(contentContainerView)
 
@@ -203,6 +209,52 @@ open class SideMenuController: UIViewController {
 
         configureGesturesRecognizer()
         setUpNotifications()
+    }
+    
+    @objc private func keyboardWillShow(_ notification: Notification) {
+
+        guard let userInfo = notification.userInfo,
+            let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+            return
+        }
+        let keyboardHeight = keyboardFrame.height
+        self.lastKeyboardFrame = keyboardFrame
+//        debugPrint("keyboardWillShow: \(keyboardFrame)")
+
+        
+        // Adjust the frame of your side menu hosting view
+        // You may need to calculate the new height based on your layout
+        // For example, subtract the keyboard height from the initial height
+        // and set it as the new height of the side menu hosting view
+//        let newHeight = self.view.frame.height - keyboardHeight
+
+        // Update the frame of the side menu hosting view
+//        self.sideMenuHostingView.frame = CGRect(x: 0, y: 0, width: self.view.frame.width, height: newHeight)
+    }
+
+    var lastKeyboardFrame: CGRect?
+    
+    @objc private func keyboardWillHide(_ notification: Notification) {
+//        debugPrint("keyboardWillHide")
+        self.fixFrameHeightsAfterKbDismissal()
+        // Reset the frame of your side menu hosting view to its original height
+//        self.sideMenuHostingView.frame = CGRect(x: 0, y: 0, width: self.view.frame.width, height: self.view.frame.height)
+    }
+
+    private func fixFrameHeightsAfterKbDismissal() {
+        if let lastKeyboardFrame = lastKeyboardFrame {
+            self.lastKeyboardFrame = nil
+            //adjust the frames for the contentviews by subtracting height
+            let kbHeight = lastKeyboardFrame.height
+            debugPrint("My Frame: \(self.view.frame) Content Frame: \(contentContainerView.frame) SideMenuFrame: \(menuContainerView.frame) Keyboard Height: \(kbHeight)")
+            
+//            if self.contentContainerView.frame.height < self.view.frame.height {
+//                self.contentContainerView.frame.size.height += kbHeight
+//            }
+//            if self.menuContainerView.frame.height < self.view.frame.height {
+//                self.menuContainerView.frame.size.height += kbHeight
+//            }
+        }
     }
 
     private func resolveDirection(with view: UIView) {
@@ -265,11 +317,16 @@ open class SideMenuController: UIViewController {
         }
 
         print("UIApplication.shared.beginIgnoringInteractionEvents() -- changeMenuVisibility")
-        UIApplication.shared.beginIgnoringInteractionEvents()
-
+//        UIApplication.shared.beginIgnoringInteractionEvents()
+        self.view.isUserInteractionEnabled = false
+        
         let animationClosure = {
             self.menuContainerView.frame = self.sideMenuFrame(visibility: reveal)
-            self.contentContainerView.frame = self.contentFrame(visibility: reveal)
+            let contentContainerViewFrame = self.contentFrame(visibility: reveal)
+            debugPrint("contentContainerViewFrame: \(contentContainerViewFrame)")
+            self.contentContainerView.frame = contentContainerViewFrame
+            
+//            self.contentContainerView.frame = self.contentFrame(visibility: reveal)
             if self.shouldShowShadowOnContent {
                 self.contentContainerOverlay?.alpha = reveal ? self.preferences.animation.shadowAlpha : 0
             }
@@ -293,7 +350,9 @@ open class SideMenuController: UIViewController {
 
             completion?(true)
 
-            UIApplication.shared.endIgnoringInteractionEvents()
+            
+            self.view.isUserInteractionEnabled = true
+//            UIApplication.shared.endIgnoringInteractionEvents()
             print("UIApplication.shared.endIgnoringInteractionEvents() -- changeMenuVisibility")
 
             self.isMenuRevealed = reveal
@@ -511,7 +570,7 @@ open class SideMenuController: UIViewController {
                 // When panGestureVelocity is nil, rely only on offsetPercent
                 shouldReveal = offsetPercent > decisionPoint
             }
-            print("SideMenuController shouldReveal: \(shouldReveal) offsetPercent: \(offsetPercent) decisionPoint: \(decisionPoint) velocityX: \(velocityX) panGestureVelocity: \(panGestureVelocity ?? -1)")
+//            print("SideMenuController shouldReveal: \(shouldReveal) offsetPercent: \(offsetPercent) decisionPoint: \(decisionPoint) velocityX: \(velocityX) panGestureVelocity: \(panGestureVelocity ?? -1)")
             if shouldReveal {
                 changeMenuVisibility(reveal: true, shouldCallDelegate: !isMenuRevealed, shouldChangeStatusBar: !isMenuRevealed)
             } else {
@@ -544,6 +603,12 @@ open class SideMenuController: UIViewController {
                                                selector: #selector(SideMenuController.appDidEnteredBackground),
                                                name: UIApplication.didEnterBackgroundNotification,
                                                object: nil)
+        
+        if self.shouldFixKeyboardHeight {
+            // Add this in your viewDidLoad method or appropriate initialization method
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+        }
     }
 
     private func unregisterNotifications() {
