@@ -191,24 +191,10 @@ public struct SideMenuView<R: View, M: View>: View {
     public var body: some View {
         SideMenuRepresentable(model: model, updateToggle: updateToggle, root: root, menu: menu)
 //            .ignoresSafeArea(.keyboard, edges: .all)
-            .ignoresSafeArea()
+//            .ignoresSafeArea(.container, edges: .bottom)
+//            .ignoresSafeArea()
+        
     }
-    
-//    struct EmbedSwiftUIView<Content: View> : UIViewControllerRepresentable {
-//
-//        var content: () -> Content
-//
-//        func makeUIViewController(context: Context) -> UIHostingController<Content> {
-//            let hostingController = UIHostingController(rootView: content())
-//            hostingController.view.backgroundColor = .clear
-//            return hostingController
-//            
-//        }
-//
-//        func updateUIViewController(_ host: UIHostingController<Content>, context: Context) {
-//            host.rootView = content() // Update content
-//        }
-//    }
     
     struct SideMenuRepresentable: UIViewControllerRepresentable {
         typealias UIViewControllerType = SideMenuController
@@ -251,8 +237,9 @@ public struct SideMenuView<R: View, M: View>: View {
 
             
             if #available(iOS 16.4, *) {
-                contentViewController.safeAreaRegions = SafeAreaRegions()
+//                contentViewController.safeAreaRegions = SafeAreaRegions()
 //                menuViewController.safeAreaRegions = SafeAreaRegions()
+//                contentViewController.safeAreaRegions = .keyboard
                 menuViewController.safeAreaRegions = .keyboard
             }
             if #available(iOS 16.0, *) {
@@ -260,6 +247,7 @@ public struct SideMenuView<R: View, M: View>: View {
             }
             
             menuViewController.view.backgroundColor = .clear
+            
             
             context.coordinator.menuViewHost = menuViewController
             
@@ -366,7 +354,6 @@ public struct SideMenuView<R: View, M: View>: View {
     
 }
 
-
 public struct SideMenuTester_SUIContainer: View {
     
     @State var selection: Int = 0
@@ -374,11 +361,17 @@ public struct SideMenuTester_SUIContainer: View {
         
     }
     public var body: some View {
-        SideMenuTester_SUI($selection)
+        if #available(iOS 16.0, *) {
+            SideMenuTester_SUI($selection)
+        } else {
+            // Fallback on earlier versions
+            Text("Hello world")
+        }
     }
     
 }
 
+@available(iOS 16.0, *)
 public struct SideMenuTester_SUI: View {
     
     @Binding var selection: Int
@@ -421,6 +414,7 @@ public struct SideMenuTester_SUI: View {
         }
     }
     
+    @State var textInput: String = ""
     
     @ViewBuilder
     func testTabContent(_ forIdx: Int) -> some View {
@@ -431,12 +425,15 @@ public struct SideMenuTester_SUI: View {
                 
                 
                 ScrollView {
-                    ForEach(0..<200) { i in
+                    ForEach(0..<50) { i in
                         HStack {
                             Text("Item \(i)")
                             Spacer()
                         }
                     }
+                    TextField("Hello world", text: $textInput, prompt: nil, axis: .vertical)
+                    
+                    
                 }
             }
             .padding()

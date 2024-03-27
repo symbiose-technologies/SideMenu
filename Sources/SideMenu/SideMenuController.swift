@@ -191,9 +191,11 @@ open class SideMenuController: UIViewController {
         menuContainerView.frame = sideMenuFrame(visibility: false)
         view.addSubview(menuContainerView)
 
-        load(contentViewController, on: contentContainerView)
-        load(menuViewController, on: menuContainerView)
-//        load(menuViewController, on: menuContainerView, useConstraints: true)
+        load(contentViewController, on: contentContainerView, useConstraints: false)
+//        load(contentViewController, on: contentContainerView, useConstraints: true)
+
+//        load(menuViewController, on: menuContainerView)
+        load(menuViewController, on: menuContainerView, useConstraints: true)
 
         
         if preferences.basic.position == .under {
@@ -209,6 +211,12 @@ open class SideMenuController: UIViewController {
 
         configureGesturesRecognizer()
         setUpNotifications()
+    }
+    
+    open override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        debugPrint("viewSafeAreaInsetsDidChange!: new insets: \(view.safeAreaInsets)")
+    
     }
     
     @objc private func keyboardWillShow(_ notification: Notification) {
@@ -316,7 +324,7 @@ open class SideMenuController: UIViewController {
             addContentOverlayViewIfNeeded()
         }
 
-        print("UIApplication.shared.beginIgnoringInteractionEvents() -- changeMenuVisibility")
+//        print("UIApplication.shared.beginIgnoringInteractionEvents() -- changeMenuVisibility")
 //        UIApplication.shared.beginIgnoringInteractionEvents()
         self.view.isUserInteractionEnabled = false
         
@@ -347,13 +355,12 @@ open class SideMenuController: UIViewController {
                 self.contentContainerOverlay?.removeFromSuperview()
                 self.contentContainerOverlay = nil
             }
-
-            completion?(true)
-
-            
             self.view.isUserInteractionEnabled = true
+            completion?(true)
+            
+//            self.view.isUserInteractionEnabled = true
 //            UIApplication.shared.endIgnoringInteractionEvents()
-            print("UIApplication.shared.endIgnoringInteractionEvents() -- changeMenuVisibility")
+//            print("UIApplication.shared.endIgnoringInteractionEvents() -- changeMenuVisibility")
 
             self.isMenuRevealed = reveal
         }
@@ -826,6 +833,8 @@ open class SideMenuController: UIViewController {
 
     private func contentFrame(visibility: Bool, targetSize: CGSize? = nil) -> CGRect {
         let position = preferences.basic.position
+        debugPrint("SideMenuController - contentFrame: visibility: \(visibility), targetSize: \(targetSize ?? .zero) -- current root frame size: \(view.frame.size)")
+        
         switch position {
         case .above:
             return CGRect(origin: view.frame.origin, size: targetSize ?? view.frame.size)
